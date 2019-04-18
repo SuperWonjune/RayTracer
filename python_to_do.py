@@ -34,9 +34,9 @@ class Vector3:
     
 
 class Light:
-    def __init__(self, origin:Vector3 ,intensity:float):
+    def __init__(self, o:Vector3 ,intensity:float):
         self.o = o
-        self.intensity = brightness
+        self.intensity = intensity
 
 
 class Color:
@@ -134,7 +134,7 @@ def object_ray(ray, objects, ignore=None):
                 intersect = currentIntersect
     return intersect
 
-def trace(ray, objects, lights):
+def trace(ray, objects, light:Light):
     intersect = object_ray(ray, objects)
 
     # 공허
@@ -142,13 +142,13 @@ def trace(ray, objects, lights):
         col = Vector3(0, 0, 0)
 
     # 물체 음영
-    elif intersect.n.dot(light - intersect.p) < 0:
+    elif intersect.n.dot(light.o - intersect.p) < 0:
         col = Vector3(0, 0, 0)
     else:
-        lightRay = Ray(intersect.p, (light-intersect.p).normal())
+        lightRay = Ray(intersect.p, (light.o-intersect.p).normal())
         if object_ray(lightRay, objects, intersect.obj).d == -1:
-            lightIntensity = 500.0/(4*pi*(light-intersect.p).magnitude()**2)
-            col = intersect.obj.color * max(intersect.n.normal().dot((light - intersect.p).normal()*lightIntensity), AMBIENT)
+            lightIntensity = 500.0/(4*pi*(light.o-intersect.p).magnitude()**2) * light.intensity
+            col = intersect.obj.color * max(intersect.n.normal().dot((light.o - intersect.p).normal()*lightIntensity), AMBIENT)
         else:
             # 물체 위 그림자
             col = Vector3(0, 0, 0)
@@ -245,9 +245,11 @@ def main():
     # Set values from <light>
     for c in root.findall('light'):
         # array value
+        lights = []
         light_position=np.array(c.findtext('position').split()).astype(np.float)
         intensity = np.array(c.findtext('intensity').split()).astype(np.float)[0]
-        # light_obj = Light(Vector3(light_position[0], light_position[1], light_position[2]), intensity)
+        light_obj = Light(Vector3(light_position[0], light_position[1], light_position[2]), intensity)
+        lights.append(light_obj)
 
     """
     LOAD FROM XML ENDS
@@ -255,7 +257,7 @@ def main():
 
     # TODO
     # multiple lights
-    lightSource = Vector3(0,5,0)  # experiment with a different (x,y,z) light position
+    lightSource = Light(Vector3(0,5,0), 1)
 
     img_width = imgSize[0]
     img_height = imgSize[1]
