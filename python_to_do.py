@@ -134,24 +134,28 @@ def object_ray(ray, objects, ignore=None):
                 intersect = currentIntersect
     return intersect
 
-def trace(ray, objects, light:Light):
+def trace(ray, objects, lights):
     intersect = object_ray(ray, objects)
+    col = Vector3(0, 0, 0)
+    for light in lights:
+        # 공허
+        if intersect.d == -1:
+            pass
+            # col = Vector3(0, 0, 0)
 
-    # 공허
-    if intersect.d == -1:
-        col = Vector3(0, 0, 0)
-
-    # 물체 음영
-    elif intersect.n.dot(light.o - intersect.p) < 0:
-        col = Vector3(0, 0, 0)
-    else:
-        lightRay = Ray(intersect.p, (light.o-intersect.p).normal())
-        if object_ray(lightRay, objects, intersect.obj).d == -1:
-            lightIntensity = 500.0/(4*pi*(light.o-intersect.p).magnitude()**2) * light.intensity
-            col = intersect.obj.color * max(intersect.n.normal().dot((light.o - intersect.p).normal()*lightIntensity), AMBIENT)
+        # 물체 음영
+        elif intersect.n.dot(light.o - intersect.p) < 0:
+            pass
+            # col = Vector3(0, 0, 0)
         else:
-            # 물체 위 그림자
-            col = Vector3(0, 0, 0)
+            lightRay = Ray(intersect.p, (light.o-intersect.p).normal())
+            if object_ray(lightRay, objects, intersect.obj).d == -1:
+                lightIntensity = 500.0/(4*pi*(light.o-intersect.p).magnitude()**2) * light.intensity
+                col += intersect.obj.color * max(intersect.n.normal().dot((light.o - intersect.p).normal()*lightIntensity), AMBIENT)
+            else:
+                pass
+                # 물체 위 그림자
+                # col = Vector3(0, 0, 0)
     return col
 
 def gammaCorrection(color,factor):
@@ -243,9 +247,9 @@ def main():
         # elif c.get('type') == 'Box':
 
     # Set values from <light>
+    lights = []
     for c in root.findall('light'):
         # array value
-        lights = []
         light_position=np.array(c.findtext('position').split()).astype(np.float)
         intensity = np.array(c.findtext('intensity').split()).astype(np.float)[0]
         light_obj = Light(Vector3(light_position[0], light_position[1], light_position[2]), intensity)
@@ -278,7 +282,7 @@ def main():
             d_norm = d.normal() * projDistance
             dirr_vec = d_norm + u*(-(viewWidth / 2) + (x / img_width) * viewWidth) * -1 + v*( (viewHeight / 2) - (y / img_height) * viewHeight)
             ray = Ray(cameraPos, dirr_vec.normal())
-            col = trace(ray, objects, lightSource)
+            col = trace(ray, objects, lights)
             img.putpixel((x,img_height-1-y),gammaCorrection(col,GAMMA_CORRECTION))
     img.save(sys.argv[1] + '.png')
 
