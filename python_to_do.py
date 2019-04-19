@@ -226,8 +226,7 @@ def trace(ray, objects, lights):
         else:
             lightRay = Ray(intersect.p, (light.o-intersect.p).normal())
             if object_ray(lightRay, objects, intersect.obj).d == -1:
-                lightIntensity = 500.0/(4*pi*(light.o-intersect.p).magnitude()**2) * light.intensity
-                col += intersect.obj.color * max(intersect.n.normal().dot((light.o - intersect.p).normal()*lightIntensity), AMBIENT)
+                col += intersect.obj.color * intersect.n.normal().dot((light.o - intersect.p).normal()*light.intensity)
             else:
                 pass
                 # 물체 위 그림자
@@ -270,6 +269,7 @@ def main():
     """
     LOAD FROM XML BEGINS
     """
+    print("LOADING INFORMATION FROM XML...")
     
     imgSize=np.array(root.findtext('image').split()).astype(np.int)
     # imgSize[0]: width
@@ -323,8 +323,6 @@ def main():
             objects.append(Box(npToVector3(np.array(c.findtext('minPt').split()).astype(np.float)),
                                 npToVector3(np.array(c.findtext('maxPt').split()).astype(np.float)),
                                 shaders[shade_name]))
-    for obj in objects:
-        print(obj)
 
     # Set values from <light>
     lights = []
@@ -334,24 +332,20 @@ def main():
         intensity = np.array(c.findtext('intensity').split()).astype(np.float)[0]
         light_obj = Light(Vector3(light_position[0], light_position[1], light_position[2]), intensity)
         lights.append(light_obj)
-    
-    for light in lights:
-        print(light)
+
 
     """
     LOAD FROM XML ENDS
     """
-
-    # TODO
-    # multiple lights
-    lightSource = Light(Vector3(0,5,0), 1)
-
+    print("LOAD COMPLETE.")
+    print("RENDERRING....")
     img_width = imgSize[0]
     img_height = imgSize[1]
 
     img = Image.new("RGB",(img_width,img_height))
     cameraPos = viewPoint
 
+    # Calculation for Camera
     # get w,u,v Vectors
     d = viewDir
     w = d * -1
@@ -367,9 +361,11 @@ def main():
             ray = Ray(cameraPos, dirr_vec.normal())
             col = trace(ray, objects, lights)
             img.putpixel((x,img_height-1-y),gammaCorrection(col,GAMMA_CORRECTION))
-    img.save(sys.argv[1] + '.png')
+    print("RENDERING COMPLETE!")
+    save_loc = sys.argv[1] + '.png'
+    img.save(save_loc)
+    print("SAVED AT", save_loc)
 
-    code.interact(local=dict(globals(), **locals()))
 
 if __name__=="__main__":
     main()
