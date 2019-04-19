@@ -238,10 +238,6 @@ def gammaCorrection(color,factor):
             int(pow(color.y/255.0,factor)*255),
             int(pow(color.z/255.0,factor)*255))
 
-
-AMBIENT = 0.0
-GAMMA_CORRECTION = 1/2.2
-
 def getVecFromXml(root, elementName:str):
     arr = np.array(root.findtext(elementName).split()).astype(np.float)
     return Vector3(arr[0], arr[1], arr[2])
@@ -256,6 +252,9 @@ def main():
     tree = ET.parse(sys.argv[1])
     # <scene> element in xml
     root = tree.getroot()
+
+    # CUSTOM VALUES
+    GAMMA_CORRECTION = 1/2.2
 
     # set default values
     viewDir=np.array([0,0,-1]).astype(np.float)
