@@ -34,7 +34,7 @@ class Vector3:
     
 
 class Light:
-    def __init__(self, o:Vector3 ,intensity:float):
+    def __init__(self, o:Vector3, intensity:float):
         self.o = o
         self.intensity = intensity
 
@@ -60,7 +60,7 @@ class Shader:
     Lambertian type은 diffuseColor만 소유
 
     color는 .2 .3 1과 같은 형태로 저장
-    사용시 toUINT8() 메소드 활용
+    도형에서 사용시 toUINT8() 메소드 활용
     """
     def __init__(self, name, type, diffuseColor:Color, specularColor:Color = Color(np.zeros(3)), exponent = 0):
         self.name = name
@@ -85,13 +85,13 @@ class Sphere:
             # ray와 원이 안 만나는 경우
             return Intersection( Vector3(0,0,0), -1, Vector3(0,0,0), self)
         else:
-            d = -ray.d.dot(ray.p - self.center)
-            d1 = d - sqrt(q)
-            d2 = d + sqrt(q)
-            if 0 < d1 and ( d1 < d2 or d2 < 0):
-                return Intersection(ray.p+ray.d*d1, d1, self.normal(ray.p+ray.d*d1), self)
-            elif 0 < d2 and ( d2 < d1 or d1 < 0):
-                return Intersection(ray.p+ray.d*d2, d2, self.normal(ray.p+ray.d*d2), self)
+            tm = -ray.d.dot(ray.p - self.center)
+            t0 = tm - sqrt(q)
+            t1 = tm + sqrt(q)
+            if 0 < t0 and ( t0 < t1 or t1 < 0):
+                return Intersection(ray.p + ray.d * t0, t0, self.normal(ray.p+ray.d*t0), self)
+            elif 0 < t1 and ( t1 < t0 or t0 < 0):
+                return Intersection(ray.p + ray.d * t1, t1, self.normal(ray.p+ray.d*t1), self)
             else:
                 return Intersection( Vector3(0,0,0), -1, Vector3(0,0,0), self)
 
@@ -107,7 +107,76 @@ class Box:
         self.color = npToVector3(shader.diffuseColor.toUINT8())
 
     def intersection(self, ray):
-        return
+        # get mimimum and maximum enter value
+        
+        # 어떤 종류의 plane에 normal하게 되는지 저장하는 index
+        # AABB이므로 가능한 normal vectors는 6개로 정해져 있음.
+        normal_index = 0
+
+        # tMin, tMax 먼저 x value로 설정, 그 후 y, z와 비교해가면서 tMin, tMax값 업데이트
+        txMin = (self.minPt.x - ray.p.x) / ray.d.x
+        txMax = (self.maxPt.x - ray.p.x) / ray.d.x
+        if txMin > txMax:
+            txMin, txMax = txMax, txMin
+        tMin = txMin
+        tMax = txMax
+
+        tyMin = (self.minPt.y - ray.p.y) / ray.d.y
+        tyMax = (self.maxPt.y - ray.p.y) / ray.d.y
+        if tyMin > tyMax:
+            tyMin, tyMax, = tyMax, tyMin
+        
+        # out of boundary
+        if tMin > tyMax or tyMin > tMax:
+            return Intersection( Vector3(0,0,0), -1, Vector3(0,0,0), self)
+
+        tMin = max(tMin, tyMin)
+        tMax = min(tMax, tyMax)
+
+        # z value evaluation
+        tzMin = (self.minPt.z - ray.p.z) / ray.d.z
+        tzMax = (self.maxPt.z - ray.p.z) / ray.d.z 
+        if tzMin > tzMax:
+            tzMin, tzMax = tzMax, tzMin
+        
+        # out of boundary
+        if tMin > tzMax or tzMin > tMax:
+            return Intersection( Vector3(0,0,0), -1, Vector3(0,0,0), self)
+
+        tMin = max(tMin, tzMin)
+        tMax = min(tMax, tzMax)
+
+        t = tMin
+
+        if t < 0:
+            t = tMax
+            if t < 0:
+                return Intersection( Vector3(0,0,0), -1, Vector3(0,0,0), self)
+        
+
+        # Noraml Vector 설정
+
+        if t == txMin:
+            normal_index = 0
+        elif t == tyMin:
+            normal_index = 1
+        elif t == tzMin:
+            normal_index = 2
+        elif t == txMax:
+            normal_index = 3
+        elif t == tyMax:
+            normal_index = 4
+        elif t == tzMax:
+            normal_index = 5
+        else:
+            print("ERROR")
+        return Intersection( ray.p + ray.d * t, t, self.normal(normal_index), self)
+    
+
+    def normal(self, normal_index):
+        normals = [Vector3(1,0,0), Vector3(0,1,0), Vector3(0,0,1),
+                    Vector3(-1,0,0), Vector3(0,-1,0), Vector3(0,0,-1)];
+        return normals[normal_index]
 
 
 class Ray:
@@ -117,6 +186,11 @@ class Ray:
 
 class Intersection:
     def __init__(self, point, distance, normal, obj):
+        """
+        p : 물체 위의 ray intersecting point
+        d : ray, p 거리
+        n : p점에서 normal vector
+        """
         self.p = point
         self.d = distance
         self.n = normal
@@ -132,6 +206,8 @@ def object_ray(ray, objects, ignore=None):
                 intersect = currentIntersect
             elif 0 < currentIntersect.d < intersect.d:
                 intersect = currentIntersect
+            else:
+                pass
     return intersect
 
 def trace(ray, objects, lights):
@@ -228,7 +304,6 @@ def main():
         elif c_type == "Lambertian":
             shaders[c_name] = Shader(c_name, c_type, 
                 Color(np.array(c.findtext('diffuseColor').split()).astype(np.float)))
-    print(shaders)
 
 
     # objects to be rendered. Find them in <surface> tag
@@ -242,9 +317,14 @@ def main():
                                 float(c.findtext('radius')),
                                 shaders[shade_name]))
         
-        # box
-        # TODO
-        # elif c.get('type') == 'Box':
+        # Box
+        elif c.get('type') == 'Box':
+            shade_name = c.find('shader').get('ref')
+            objects.append(Box(npToVector3(np.array(c.findtext('minPt').split()).astype(np.float)),
+                                npToVector3(np.array(c.findtext('maxPt').split()).astype(np.float)),
+                                shaders[shade_name]))
+    for obj in objects:
+        print(obj)
 
     # Set values from <light>
     lights = []
@@ -254,6 +334,9 @@ def main():
         intensity = np.array(c.findtext('intensity').split()).astype(np.float)[0]
         light_obj = Light(Vector3(light_position[0], light_position[1], light_position[2]), intensity)
         lights.append(light_obj)
+    
+    for light in lights:
+        print(light)
 
     """
     LOAD FROM XML ENDS
