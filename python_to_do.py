@@ -76,6 +76,7 @@ class Sphere:
         self.radius = radius
         self.shader = shader
         self.color = npToVector3(shader.diffuseColor.toUINT8())
+        self.specColor = npToVector3(shader.specularColor.toUINT8())
 
 
     def intersection(self, ray):
@@ -103,11 +104,12 @@ class Box:
     def __init__(self, minPt, maxPt, shader:Shader):
         self.minPt = minPt
         self.maxPt = maxPt
-        self.shader = Shader
+        self.shader = shader
         self.color = npToVector3(shader.diffuseColor.toUINT8())
+        self.specColor = npToVector3(shader.specularColor.toUINT8())
 
     def intersection(self, ray):
-        # get mimimum and maximum enter value
+        # 3 slab method
         
         # 어떤 종류의 plane에 normal하게 되는지 저장하는 index
         # AABB이므로 가능한 normal vectors는 6개로 정해져 있음.
@@ -153,7 +155,6 @@ class Box:
             if t < 0:
                 return Intersection( Vector3(0,0,0), -1, Vector3(0,0,0), self)
         
-
         # Noraml Vector 설정
 
         if t == txMin:
@@ -225,8 +226,15 @@ def trace(ray, objects, lights):
             # col = Vector3(0, 0, 0)
         else:
             lightRay = Ray(intersect.p, (light.o-intersect.p).normal())
+            # Lambertian Shading
             if object_ray(lightRay, objects, intersect.obj).d == -1:
-                col += intersect.obj.color * intersect.n.normal().dot((light.o - intersect.p).normal()*light.intensity)
+                col += intersect.obj.color * intersect.n.normal().dot(lightRay.d) * light.intensity
+
+                # Phong Shading
+                if intersect.obj.shader.type == "Phong":
+                    exp = intersect.obj.shader.exponent
+                    vlBisector = (lightRay.d + ray.d * -1).normal()
+                    col += intersect.obj.specColor * pow(intersect.n.normal().dot(vlBisector), exp) * light.intensity
             else:
                 pass
                 # 물체 위 그림자
